@@ -2,19 +2,21 @@
 #include "TimSort.h"
 
 const int MIN_MERGE = 32;
-int min_gallop = 7;
+int min_gallop = 7;     // ngưỡng để bật chế độ galloping
 
+// Tính độ dài tối thiểu của 1 runs
 int calcMinRun(int n)
 {
     int r = 0;
     while (n >= MIN_MERGE)
     {
-        r |= (n & 1);
-        n >>= 1;
+        r |= (n & 1);   // nếu n lẻ, đạt r = 1;
+        n >>= 1;        // chia đôi n
     }
-    return n + r;
+    return n + r;       // trả về minRun
 }
 
+// Sắp xếp mảng từ left đến right bằng Insertion sort 
 void insertionSort(int *arr, int left, int right)
 {
     for (int i = left + 1; i <= right; ++i)
@@ -29,12 +31,14 @@ void insertionSort(int *arr, int left, int right)
     }
 }
 
+// Tìm vị trí đầu tiên mà base[pos] >= x (cho phần merge bên trái)
 int gallopLeft(int x, int *base, int len)
 {
     int ofs = 1, lastOfs = 0;
 
     if (x > base[0])
     {
+        // Nhảy lũy thùa 2 để tìm khoảng cần tìm kiếm nhị phân
         while (ofs < len && x > base[ofs])
         {
             lastOfs = ofs;
@@ -48,7 +52,7 @@ int gallopLeft(int x, int *base, int len)
     {
         return 0;
     }
-
+    // Tìm nhị phân trong khoảng từ lastOfs đến ofs
     int low = lastOfs, high = ofs;
     while (low < high)
     {
@@ -60,7 +64,7 @@ int gallopLeft(int x, int *base, int len)
     }
     return low;
 }
-
+// Tìm vị trí đầu tiên mà base[pos] > x (cho phần merge bên phải)
 int gallopRight(int x, int *base, int len)
 {
     int ofs = 1, lastOfs = 0;
@@ -93,15 +97,16 @@ int gallopRight(int x, int *base, int len)
     return low;
 }
 
+// Hợp nhất 2 Run đã sắp xếp
 void mergeAt(int *arr, Run a, Run b)
 {
-    int *temp = new int[a.length];
+    int *temp = new int[a.length];      // tạo bản sao cho Run a
     memcpy(temp, arr + a.start, a.length * sizeof(int));
 
     int i = 0, j = b.start, dest = a.start;
     int aLen = a.length, bLen = b.length;
 
-    int countA = 0, countB = 0;
+    int countA = 0, countB = 0;     // Đếm số lần bên A hoặc B thắng liên tiếp
 
     while (i < aLen && j < b.start + bLen)
     {
@@ -117,7 +122,7 @@ void mergeAt(int *arr, Run a, Run b)
             countB++;
             countA = 0;
         }
-
+        // Nếu một phía thắng liên tiếp nhiều lần, dùng chế độ galloping
         if ((countA | countB) >= min_gallop)
         {
             int gallopA = gallopRight(arr[j], temp + i, aLen - i);
@@ -136,16 +141,17 @@ void mergeAt(int *arr, Run a, Run b)
             if (j >= b.start + bLen)
                 break;
 
-            min_gallop += 1;
+            min_gallop += 1;    // Điều chỉnh ngưỡng tùy thuật toán
         }
     }
-
+    // Copy phần còn lại của temp 
     while (i < aLen)
         arr[dest++] = temp[i++];
 
     delete[] temp;
 }
 
+// Hợp nhất các runs trên Stack
 void mergeCollapse(stack<Run> &runs, int *arr)
 {
     while (runs.size() > 1)
@@ -162,6 +168,7 @@ void mergeCollapse(stack<Run> &runs, int *arr)
             runs.pop();
             if (Z.length <= Y.length + X.length)
             {
+                // Nếu Z nhỏ nhất thì gộp Z và Y trước
                 if (Z.length < X.length)
                 {
                     runs.push(Y);
@@ -183,7 +190,7 @@ void mergeCollapse(stack<Run> &runs, int *arr)
                 runs.push(Z);
             }
         }
-
+        // Gộp X và Y nếu cần thiết
         if (Y.length <= X.length)
         {
             mergeAt(arr, Y, X);
@@ -210,6 +217,7 @@ void TimSort(int *arr, int n)
         int runStart = i;
         int runEnd = i + 1;
 
+        // Phát hiện run giảm và đảo ngược thành tăng
         if (runEnd < n && arr[runEnd] < arr[runStart])
         {
             while (runEnd < n && arr[runEnd] < arr[runEnd - 1])
@@ -218,11 +226,13 @@ void TimSort(int *arr, int n)
         }
         else
         {
+            // Run tăng tự nhiên
             while (runEnd < n && arr[runEnd] >= arr[runEnd - 1])
                 runEnd++;
         }
 
         int runLen = runEnd - runStart;
+        // Nếu run ngắn hơn minRun, dùng Insertion sort mở rộng
         if (runLen < minRun)
         {
             int end = min(runStart + minRun, n);
@@ -230,13 +240,13 @@ void TimSort(int *arr, int n)
             runEnd = end;
             runLen = runEnd - runStart;
         }
-
+        // Lưu run vào Stack
         runStack.push({runStart, runLen});
-        mergeCollapse(runStack, arr);
+        mergeCollapse(runStack, arr);   // Gộp nếu cần
 
-        i = runEnd;
+        i = runEnd;     // Tiếp tục với đoạn kế tiếp
     }
-
+    // Gộp các run còn lại
     while (runStack.size() > 1)
     {
         Run X = runStack.top();
